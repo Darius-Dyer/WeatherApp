@@ -1,10 +1,11 @@
 import { createStaticNavigation, StaticParamList } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import Overview from '../screens/overview';
-import Details from '../screens/details';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import Overview from '../screens/MainSearch';
+import Details from '../screens/SavedLocations';
 import { BackButton } from '../components/BackButton';
 
-const Stack = createStackNavigator({
+const Stack = createNativeStackNavigator({
   screens: {
     Overview: {
       screen: Overview,
