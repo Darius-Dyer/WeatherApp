@@ -4,6 +4,7 @@ import { DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { useColorScheme } from 'react-native';
 import { useMemo } from 'react';
 import Navigation from './navigation';
+import 'react-native-reanimated';
 
 export default function App() {
   const colorScheme = useColorScheme();
