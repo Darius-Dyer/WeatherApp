@@ -1,16 +1,19 @@
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  interpolateColor,
-} from 'react-native-reanimated';
-import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import debounce from 'debounce';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+} from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 
-import { Button } from '../components/Button';
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 interface WeatherData {
   location: Location;
@@ -73,8 +76,13 @@ interface SearchResult {
   url: string;
 }
 
+interface SavedLocation {
+  name: string;
+  country: string;
+  region: string;
+}
+
 let controller: AbortController;
-let searchText: string;
 
 const MOCK_DATA: WeatherData = {
   location: {
@@ -150,24 +158,30 @@ const MOCK_DATA: WeatherData = {
   },
 };
 
-export default function Overview() {
+export default function MainSearch() {
   //Constants used for weather data
-
-  const [gradientColors, setGradientColors] = useState<readonly [string, string]>(['#000', '#333']);
-  const [weatherData, setWeatherData] = useState<WeatherData | null>(MOCK_DATA);
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [displaySearch, setDisplaySearch] = useState<SearchResult[] | null>(null);
   const [searchText, setSearchText] = useState('');
   const [location, setLocation] = useState('');
   const [isMetric, setIsMetric] = useState(true);
 
-  const toggleUnits = () => setIsMetric((prev) => !prev);
+  //Used to toggle measurement preference, and save it in Async Storage.
+  const toggleUnits = async () => {
+    setIsMetric((prev) => {
+      const newValue = !prev;
+      AsyncStorage.setItem('UNIT_PREF', JSON.stringify(newValue));
+      return newValue;
+    });
+  };
+
+  const navigation = useNavigation();
 
   //Url And Key for Weather API
   const apiSearchURL = process.env.EXPO_PUBLIC_API_URL_SEARCH;
   const apiForecastURL = process.env.EXPO_PUBLIC_API_URL_FORECAST;
   const apiKey = process.env.EXPO_PUBLIC_API_KEY;
-
-  //const navigation = useNavigation();
 
   //Search Function for Location
   const fetchLocation = async (loc: string) => {
@@ -188,16 +202,69 @@ export default function Overview() {
     }
   };
 
+  //Debounce Location to avoid over calling the API
   const debouncedFetchLocation = useCallback(debounce(fetchLocation, 500), []);
 
+  useEffect(() => {
+    const loadSaved = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('SAVED_LOCATIONS');
+        if (stored) {
+          setSavedLocations(JSON.parse(stored));
+        }
+      } catch (err) {
+        console.warn('Failed to load saved locations', err);
+      }
+    };
+    loadSaved();
+  }, []);
+
+  const currentName = weatherData?.location?.name;
+  const isSaved = !!currentName && savedLocations.some((loc) => loc.name === currentName);
+
+  //Function used to save locations
+  const saveLocation = () => {
+    if (!weatherData?.location?.name) return;
+
+    const currentLocationObj: SavedLocation = {
+      name: weatherData.location.name,
+      country: weatherData.location.country,
+      region: weatherData.location.region,
+    };
+
+    const alreadySaved = savedLocations.some((loc) => loc.name === currentLocationObj.name);
+    if (alreadySaved) return;
+
+    const updated = [currentLocationObj, ...savedLocations];
+
+    setSavedLocations(updated);
+
+    AsyncStorage.setItem('SAVED_LOCATIONS', JSON.stringify(updated));
+  };
+
+  //Runs every time SearchText changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     debouncedFetchLocation(searchText);
   }, [searchText]);
 
+  //This only run once and runs the clear method on unmount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     return () => {
       debouncedFetchLocation.clear?.();
     };
+  }, []);
+
+  //On First mount, load and apply saved unit preference fromm AsyncStorage.
+  useEffect(() => {
+    const loadUnitPre = async () => {
+      const stored = await AsyncStorage.getItem('UNIT_PREF');
+      if (stored !== null) {
+        setIsMetric(JSON.parse(stored));
+      }
+    };
+    loadUnitPre();
   }, []);
 
   //Fetch Weather Data Function
@@ -208,30 +275,19 @@ export default function Overview() {
       );
       const data = await response.json();
       setWeatherData(data);
+
+      AsyncStorage.setItem('LAST_LOCATION', loc);
+
       console.log(data);
     } catch (error) {
       console.log(error);
     }
   };
 
-  const fadeProgress = useSharedValue(0);
-  const animatedStyle = useAnimatedStyle(() => {
-    const color = interpolateColor(
-      fadeProgress.value,
-      [0, 1],
-      [gradientColors[0], gradientColors[0]]
-    );
-    const color2 = interpolateColor(
-      fadeProgress.value,
-      [0, 1],
-      [gradientColors[1], gradientColors[1]]
-    );
-    return {};
-  });
-
+  //Get Gradient background color based on time of day
   const getGradientFromTime = (localTime?: string) => {
     if (!localTime) return ['#4B4F55', '#2F3237'] as const;
-    const hour = Number(localTime.split(' ')[1].split(':')[0]);
+    let hour = Number(localTime.split(' ')[1].split(':')[0]);
     if (hour >= 5 && hour <= 8) {
       return ['#FAD6A5', '#FFB347'] as const; // sunrise
     } else if (hour > 8 && hour < 17) {
@@ -243,217 +299,279 @@ export default function Overview() {
     }
   };
 
-  // useEffect(() => {
-  //   if (!weatherData?.location?.localtime_epoch) return;
+  //On First mount, load and apply last searched location from AsyncStorage.
+  useEffect(() => {
+    const loadLastLocation = async () => {
+      const saved = await AsyncStorage.getItem('LAST_LOCATION');
 
-  //   const tz = weatherData.location.tz_id;
-  //   const today = weatherData.forecast.forecastday[0];
-  //   const tomorrow = weatherData.forecast.forecastday[1];
+      //if saved exists pass it into fetchWeather Function
+      if (saved) {
+        fetchWeather(saved); // auto-fetch last location
+      }
+    };
+    loadLastLocation();
+  }, []);
 
-  //   //Parse Time function responsible for converting 12 hour time to 24 hour time and then time zone conversion.
-  //   const parseTime = (timeStr: string, dateStr: string) => {
-  //     const [time, modifier] = timeStr.split(' ');
-  //     let [hours, minutes] = time.split(':').map(Number);
-  //     if (modifier === 'PM' && hours !== 12) hours += 12;
-  //     if (modifier === 'AM' && hours === 12) hours = 0;
-
-  //     const dateTimeLocal = new Date(
-  //       `${dateStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`
-  //     );
-  //     console.log('Local Time Parsed:', dateTimeLocal);
-  //     return toZonedTime(dateTimeLocal, tz);
-  //   };
-
-  //   const sunriseToday = parseTime(today.astro.sunrise, today.date);
-  //   const sunsetToday = parseTime(today.astro.sunset, today.date);
-  //   const sunriseTommorow = parseTime(tomorrow.astro.sunrise, tomorrow.date);
-
-  //   const localTime = toZonedTime(new Date(), tz);
-  //   const oneHour = 60 * 60 * 1000;
-
-  //   let newColors: [string, string];
-
-  //   const sunriseStart = new Date(sunriseToday.getTime() - oneHour);
-  //   const sunriseEnd = new Date(sunriseToday.getTime() + oneHour);
-  //   const sunsetStart = new Date(sunsetToday.getTime() - oneHour);
-  //   const sunsetEnd = new Date(sunsetToday.getTime() + oneHour);
-
-  //   if (localTime >= sunriseStart && localTime < sunriseEnd) {
-  //     newColors = ['#FFDEAD', '#FDB813']; // sunrise
-  //   } else if (localTime >= sunriseEnd && localTime < sunsetStart) {
-  //     newColors = ['#87CEEB', '#4FC3F7']; // day
-  //   } else if (localTime >= sunsetStart && localTime < sunsetEnd) {
-  //     newColors = ['#FF8C00', '#C850C0']; // sunset
-  //   } else {
-  //     // between sunsetEnd and next-day sunriseStart
-  //     newColors = ['#0F2027', '#2C5364']; // night
-  //   }
-
-  //   fadeProgress.value = 0;
-  //   setGradientColors(newColors);
-  //   fadeProgress.value = withTiming(1, { duration: 700 });
-  // }, [weatherData]);
-
-  // const date = new Date(weatherData.location.localtime_epoch * 1000);
-  // const hour = date.getHours();
-  // console.log('Hour:', hour);
-  // if (hour >= 5 && hour < 8) {
-  //   setGradientColors(['#FFDEAD', '#FDB813']); // sunrise
-  // } else if (hour >= 8 && hour < 17) {
-  //   setGradientColors(['#87CEEB', '#4FC3F7']); // day
-  // } else if (hour >= 17 && hour < 20) {
-  //   setGradientColors(['#FF8C00', '#C850C0']); // sunset
-  // } else {
-  //   setGradientColors(['#0F2027', '#2C5364']); // night
-  // }
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const load = async () => {
+        const stored = await AsyncStorage.getItem('SAVED_LOCATIONS');
+        if (stored && active) setSavedLocations(JSON.parse(stored));
+      };
+      load();
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   return (
     //User Should be able to search for a location and save it to a list of locations.
     //Here we will just search for the location and do display basic weather information.
-
     <LinearGradient
       colors={getGradientFromTime(weatherData?.location?.localtime)}
-      style={{ flex: 1, padding: 24 }}
+      style={{ flex: 1, paddingHorizontal: 10 }}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}>
-      {/*Search Button Placement Here
-       Just Basic Text Input for Location and Button for Search*/}
-      <View>
-        <TextInput
-          placeholder={'Enter Location'}
-          style={{
-            height: 40,
-            borderColor: 'gray',
-            borderWidth: 3,
-            borderRadius: 8,
-            textAlign: 'center',
-          }}
-          placeholderTextColor={'#1e1e1e'}
-          onChangeText={(text) => {
-            setSearchText(text);
-          }}
-          value={searchText}
-        />
-
-        {/** Once Pressed, This Opacity will Display a list of Locations similar to the one inputted by the user */}
-      </View>
-
-      {/*This View Will Display The Locations that match the search criteria. 
-         If DisplaySearch exists the locations will be mapped and displayed*/}
-      <View className="flex justify-center">
-        {displaySearch &&
-          searchText.length >= 3 &&
-          displaySearch.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              onPress={() => {
-                setLocation(item.name);
-                setDisplaySearch(null);
-                fetchWeather(item.url);
-              }}
-              style={{ padding: 5, backgroundColor: '#1e1e1e', borderRadius: 8, margin: 10 }}>
-              <Text style={{ color: '#fff', textAlign: 'center' }}>
-                {item.name}, {item.region}, {item.country}
-              </Text>
-            </TouchableOpacity>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+        {/* Search Button Placement Here
+            Just Basic Text Input for Location and Button for Search
+       */}
+        {weatherData &&
+          (isSaved ? (
+            <FontAwesome.Button
+              name="star"
+              size={22}
+              color="gold"
+              backgroundColor="#1e1e1e"
+              style={{ alignItems: 'center' }}>
+              Saved
+            </FontAwesome.Button>
+          ) : (
+            <FontAwesome.Button
+              name="star-o"
+              size={22}
+              color="white"
+              backgroundColor="#1e1e1e"
+              onPress={saveLocation}
+              style={{ alignItems: 'center' }}>
+              Save to Favorites
+            </FontAwesome.Button>
           ))}
-      </View>
+        <View style={{ marginBottom: 5, padding: 7 }}>
+          <TextInput
+            placeholder={'Enter Location'}
+            style={{
+              height: 40,
+              borderColor: 'gray',
+              borderWidth: 3,
+              borderRadius: 8,
+              textAlign: 'center',
+            }}
+            placeholderTextColor={'#1e1e1e'}
+            onChangeText={(text) => {
+              setSearchText(text);
+            }}
+            value={searchText}
+          />
+        </View>
 
-      <View>
-        {/** This Displays the selected Locations Current Weather Data
-         * Including loation info, temperature, humidity, and wind speed
-         */}
-        {weatherData ? (
-          <>
-            <View style={{ borderColor: 'black', borderWidth: 10 }}>
+        {/*This View Will Display The Locations that match the search criteria. 
+         If DisplaySearch exists the locations will be mapped and displayed*/}
+        <View className="flex justify-center">
+          {displaySearch &&
+            searchText.length >= 3 &&
+            displaySearch.map((item) => (
               <TouchableOpacity
-                onPress={toggleUnits}
-                style={{
-                  padding: 10,
-                  backgroundColor: '#1e1e1e',
-                  borderRadius: 8,
-                  alignSelf: 'flex-end',
-                }}>
-                <Text style={{ color: '#fff' }}>
-                  {isMetric ? 'Switch to Imperial' : 'Switch to Metric'}
+                key={item.id}
+                onPress={() => {
+                  setLocation(item.name);
+                  setDisplaySearch(null);
+                  fetchWeather(item.url);
+                }}
+                style={{ padding: 5, backgroundColor: '#1e1e1e', borderRadius: 8, margin: 10 }}>
+                <Text style={{ color: '#fff', textAlign: 'center' }}>
+                  {item.name}, {item.region}, {item.country}
                 </Text>
               </TouchableOpacity>
-              <Text style={styles.text}>
-                Country: {weatherData?.location?.country}
-                {'\n'}
-                City: {weatherData?.location?.name}
-                {'\n'}
-                State/Province: {weatherData?.location?.region}
-              </Text>
+            ))}
+        </View>
 
-              <View style={{ flexDirection: 'row' }}>
-                <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <Text style={styles.text}>
-                    Temperature:
-                    {isMetric
-                      ? ` ${weatherData.current.temp_c}°C`
-                      : ` ${weatherData.current.temp_f}°F`}
-                  </Text>
-                  <Text style={styles.text}>Humidity: {weatherData?.current?.humidity}</Text>
+        <View>
+          {weatherData ? (
+            <>
+              {/** This Displays the selected Locations Current Weather Data
+               * Including location info, temperature, humidity, and wind speed
+               */}
+              <View style={{ borderColor: 'black', borderWidth: 4, borderRadius: 10, padding: 7 }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}>
+                  <TouchableOpacity
+                    onPress={toggleUnits}
+                    style={{
+                      padding: 10,
+                      backgroundColor: '#1e1e1e',
+                      borderRadius: 5,
+                    }}>
+                    <Text style={{ color: '#fff', fontSize: 10 }}>
+                      {isMetric ? 'Switch to Imperial' : 'Switch to Metric'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('Saved Locations' as never)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      backgroundColor: '#1e1e1e',
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderRadius: 5,
+                    }}>
+                    <FontAwesome name="list" size={12} color="white" />
+                    <Text style={{ color: '#fff', fontSize: 12 }}>View Saved</Text>
+                  </TouchableOpacity>
+
+                  <Image
+                    style={{ width: 50, height: 50 }}
+                    source={{ uri: `https:${weatherData.current.condition.icon}` }}
+                  />
                 </View>
 
-                <View style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
-                  <Text style={styles.text}>
-                    Wind Speed:
-                    {isMetric
-                      ? ` ${weatherData.current.wind_kph}kph`
-                      : ` ${weatherData.current.wind_mph}mph`}
+                <Text style={styles.text}>
+                  Country: {weatherData?.location?.country}
+                  {'\n'}
+                  City: {weatherData?.location?.name}
+                  {'\n'}
+                  Region: {weatherData?.location?.region}
+                </Text>
+
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                  }}>
+                  <View style={{}}>
+                    <Text style={styles.text}>
+                      Temperature:
+                      {isMetric
+                        ? ` ${weatherData.current.temp_c}°C`
+                        : ` ${weatherData.current.temp_f}°F`}
+                    </Text>
+                    <Text style={styles.text}>Humidity: {weatherData?.current?.humidity}</Text>
+                  </View>
+
+                  <View style={{}}>
+                    <Text style={styles.text}>
+                      Wind Speed:
+                      {isMetric
+                        ? ` ${weatherData.current.wind_kph}kph`
+                        : ` ${weatherData.current.wind_mph}mph`}
+                    </Text>
+                    <Text style={styles.text}>
+                      Feels Like:
+                      {isMetric
+                        ? ` ${weatherData.current.feelslike_c}°C`
+                        : ` ${weatherData.current.feelslike_f}°F`}
+                    </Text>
+                  </View>
+                </View>
+
+                <View className="flex flex-col">
+                  <Text className="m-1.5 self-center p-1.5 text-center text-base font-bold text-[#1e1e1e]">
+                    Current Date:{'\n'}
+                    {weatherData?.location?.localtime
+                      ? new Date(weatherData.location.localtime).toLocaleDateString()
+                      : '-'}
                   </Text>
-                  <Text style={styles.text}>
-                    Feels Like:
-                    {isMetric
-                      ? ` ${weatherData.current.feelslike_c}°C`
-                      : ` ${weatherData.current.feelslike_f}°F`}
+                  <Text className="m-1.5 self-center p-1.5 text-center text-base font-bold text-[#1e1e1e]">
+                    Current Local Time: {'\n'}
+                    {weatherData.location.localtime
+                      ? new Date(weatherData.location.localtime).toLocaleTimeString([], {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })
+                      : '-'}
                   </Text>
                 </View>
               </View>
-            </View>
 
-            {/** This Displays the selected Locations 3 Day Forecast
-             * Each  Day will display the date, max temp in F and C, and sunrise and sunset times.
-             */}
+              {/** This Displays the selected Locations 3 Day Forecast
+               * Each  Day will display the date, max temp in F and C, and sunrise and sunset times.
+               */}
 
-            <ScrollView
-              horizontal
-              contentContainerStyle={{
-                marginTop: 20,
-                borderColor: '#1e1e1e',
-                borderWidth: 4,
-                borderRadius: 8,
-                padding: 10,
-              }}>
-              <Text style={{ textAlign: 'center' }}>Forecast for the next 3 days:</Text>
-              {weatherData?.forecast?.forecastday.map((day, index) => {
-                return (
-                  <View key={index} style={{ marginVertical: 10 }}>
-                    <Text style={styles.text}>Date: {day.date}</Text>
-                    <Text style={styles.text}>Max Temp (F): {day.day?.maxtemp_f}</Text>
-                    <Text style={styles.text}>Max Temp (C): {day.day?.maxtemp_c}</Text>
-                    <Text style={styles.text}>Sunrise: {day.astro?.sunrise}</Text>
+              <Text style={{ textAlign: 'center', marginTop: 10 }}>Forecast For Next 3 Days.</Text>
+              <ScrollView
+                horizontal
+                contentContainerStyle={{
+                  marginTop: 20,
+                  borderColor: '#1e1e1e',
+                  borderWidth: 4,
+                  borderRadius: 8,
+                  padding: 10,
+                }}>
+                <View style={{ flexDirection: 'row' }}>
+                  {weatherData?.forecast?.forecastday
+                    .filter((day) => {
+                      const todayISO = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+                      return day.date >= todayISO;
+                    })
+                    .map((day, index) => {
+                      return (
+                        <View key={index} style={{ padding: 8, margin: 4 }}>
+                          <Text style={styles.text}>Date: {day.date}</Text>
+                          <Text style={styles.text}>
+                            Max Temp:
+                            {isMetric ? `${day.day?.maxtemp_c}°C` : `${day.day?.maxtemp_f}°F`}
+                          </Text>
+                          <Text style={styles.text}>Condition: {day.day.condition.text}</Text>
+                          <Image
+                            source={{ uri: `https:${day.day.condition.icon}` }}
+                            style={{ width: 50, height: 50, alignSelf: 'center' }}
+                          />
+                          <Text style={styles.text}>Sunrise: {day.astro?.sunrise}</Text>
+                          <Text style={styles.text}>Sunset: {day.astro?.sunset}</Text>
+                        </View>
+                      );
+                    })}
+                  {/* {weatherData?.forecast?.forecastday.map((day, index) => {
+                    return (
+                      <View key={index} style={{ padding: 8, margin: 4 }}>
+                        <Text style={styles.text}>
+                          Date: {day.day ? new Date(day.date).toLocaleDateString() : '-'}
+                        </Text>
+                        <Text style={styles.text}>
+                          Max Temp:{' '}
+                          {isMetric ? `${day.day?.maxtemp_c}°C` : `${day.day?.maxtemp_f}°F`}
+                        </Text>
+                        <Text style={styles.text}>Condition: {day.day.condition.text}</Text>
+                        <Image
+                          source={{ uri: `https:${day.day.condition.icon}` }}
+                          style={{
+                            width: 50,
+                            height: 50,
+                            alignSelf: 'center',
+                          }}
+                        />
 
-                    <Text style={styles.text}>Sunset: {day.astro?.sunset}</Text>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </>
-        ) : null}
-      </View>
+                        <Text style={styles.text}>Sunrise: {day.astro?.sunrise}</Text>
 
-      {/* <ScreenContent path="screens/overview.tsx" title="Overview"></ScreenContent>
-      <Button
-        onPress={() =>
-          navigation.navigate('Details', {
-            name: 'Dan',
-          })
-        }
-        title="Show Details"
-      /> */}
+                        <Text style={styles.text}>Sunset: {day.astro?.sunset}</Text>
+                      </View>
+                    );
+                  })} */}
+                </View>
+              </ScrollView>
+            </>
+          ) : null}
+        </View>
+      </ScrollView>
     </LinearGradient>
   );
 }
