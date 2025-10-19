@@ -12,7 +12,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView>
-      <Navigation theme={theme} />
+      <Navigation />
     </GestureHandlerRootView>
   );
 }
