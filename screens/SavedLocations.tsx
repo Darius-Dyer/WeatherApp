@@ -1,51 +1,63 @@
-import type { StaticScreenProps } from '@react-navigation/native';
-import { ScreenContent } from 'components/ScreenContent';
+import { StyleSheet, View, ScrollView, TouchableOpacity, Image, Text } from 'react-native';
+import { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet, View, TextInput, TouchableOpacity, Image, Text } from 'react-native';
-import { useState, useEffect, useCallback } from 'react';
-
-type Props = StaticScreenProps<{
+type SavedLocation = {
   name: string;
-}>;
+  country: string;
+  region: string;
+};
 
-let displaySearch: false;
-interface WeatherData {
-  temperature: number;
-  condition: string;
-  humidity: number;
-  windspeed: number;
-  city: string;
-}
+const SavedLocations = ({ navigation }) => {
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
+  useEffect(() => {
+    const loaded = async () => {
+      const stored = await AsyncStorage.getItem('SAVED_LOCATIONS');
+      if (stored) setSavedLocations(JSON.parse(stored));
+    };
+    loaded();
+  }, []);
 
-const Details = ({ route }: Props) => {
-  const [displaySearch, setDisplaySearch] = useState(false);
-  const [weatherData, setWeatherData] = useState<WeatherData | null>({
-    temperature: 0,
-    condition: '',
-    humidity: 0,
-    windspeed: 0,
-    city: '',
-  });
-  const [location, setLocation] = useState('');
+  const removeLocation = async (name: string) => {
+    const updated = savedLocations.filter((loc) => loc.name !== name);
+    setSavedLocations(updated);
+    await AsyncStorage.setItem('SAVED_LOCATIONS', JSON.stringify(updated));
+  };
+
   return (
-    <View className="relative flex-1">
-      <SafeAreaView className="flex flex-1">
-        <View>
-          <Text className="text-2xl font-bold text-blue-600 dark:text-sky-400">
-            Weather Details
-          </Text>
+    <ScrollView style={{ flex: 1, padding: 16 }}>
+      <Text style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 12 }}>Saved Locations</Text>
 
-          <TouchableOpacity>
-            <Image />
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    </View>
+      {savedLocations.length === 0 ? (
+        <Text>No saved locations.</Text>
+      ) : (
+        savedLocations.map((loc) => (
+          <View
+            key={loc.name}
+            style={{
+              borderWidth: 1,
+              borderColor: '#ccc',
+              padding: 12,
+              marginBottom: 10,
+              borderRadius: 8,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+            <Text>
+              {loc.name} — {loc.region} — {loc.country}
+            </Text>
+            <TouchableOpacity onPress={() => removeLocation(loc.name)}>
+              <Text style={{ color: 'red', fontWeight: 'bold' }}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        ))
+      )}
+    </ScrollView>
   );
 };
 
-export default Details;
+export default SavedLocations;
 
 // export default function Details({ route }: Props) {
 
