@@ -1,32 +1,24 @@
-import { createStaticNavigation, StaticParamList } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import Overview from '../screens/MainSearch';
-import Details from '../screens/SavedLocations';
-import { BackButton } from '../components/BackButton';
+import { NavigationContainer } from '@react-navigation/native';
+import MainSearch from '../screens/MainSearch';
+import SavedLocations from 'screens/SavedLocations';
 
-const Stack = createNativeStackNavigator({
-  screens: {
-    Overview: {
-      screen: Overview,
-    },
-    Details: {
-      screen: Details,
-      options: ({ navigation }) => ({
-        headerLeft: () => <BackButton onPress={navigation.goBack} />,
-      }),
-    },
-  },
-});
+type RootStackParamList = {
+  'Weather Search': undefined;
+  'Saved Locations': undefined;
+};
 
-type RootNavigatorParamList = StaticParamList<typeof Stack>;
+const Stack = createNativeStackNavigator();
 
-declare global {
-  namespace ReactNavigation {
-    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-    interface RootParamList extends RootNavigatorParamList {}
-  }
-}
+const Navigation = () => {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator>
+        <Stack.Screen name="Weather Search" component={MainSearch} />
+        <Stack.Screen name="Saved Locations" component={SavedLocations} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+};
 
-const Navigation = createStaticNavigation(Stack);
 export default Navigation;
