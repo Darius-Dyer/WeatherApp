@@ -36,11 +36,16 @@ Next Steps:
 - Improve test coverage.
 
 ### Screenshots
-**Search Screen** <img width="300" src="https://github.com/user-attachments/assets/e6ab5dc5-24fd-4ce8-b6d3-12f0ec176863" />
-**Main Weather Screen**
-<img width="300" src="https://github.com/user-attachments/assets/fd74bf19-d3f8-49ba-8c80-3f88ca42f8d0" />
+**Search Screen**
 
+<img width="300" src="https://github.com/user-attachments/assets/e6ab5dc5-24fd-4ce8-b6d3-12f0ec176863" />  
+
+**Main Weather Screen**
+
+<img width="300" src="https://github.com/user-attachments/assets/555ffd12-dbcc-4737-aa33-d6ef3741bff9" />
 
 **Saved Locations Screen**
+
 <img width="300" src="https://github.com/user-attachments/assets/44010823-7952-4f0c-8bb8-9c9664a7ff89" />
+
 
