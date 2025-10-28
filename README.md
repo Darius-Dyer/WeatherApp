@@ -1,11 +1,11 @@
 # WeatherApp
-This mobile weather application built with React Native and TypeScript that allows users to search locations, view weather conditions, and see 3-day forecastt using the WeatherAPI service.  
+This is a mobile weather application built with React Native and TypeScript that allows users to search locations, view weather conditions, and see 3-day forecast using the WeatherAPI service.  
 
-Tech/Stack:
-- TypeScript/React Native.
+Tech Stack:
+- TypeScript / React Native.
 - Expo Go - Development and testing.
 - WeatherAPI - Location, current conditions, and forecast data.
-- AsyncStorage - Persistence for user preferneces and saved locations.
+- AsyncStorage - Persistence for user preferences and saved locations.
 - Linear Gradient - Dynamic background theming based on time of day.
 
 Features: 
@@ -15,7 +15,7 @@ Current Weather Display - Shows time, date, temperature, feels-like temp, humidi
 
 3-Day Forecast - Displays minimal forecast info for upcoming days including date, max temperature, condition description and icon, sunrise and sunset times.
 
-Unit Conversion - Toggle between Imperial and Metric units; prefernece persists across app restarts. 
+Unit Conversion - Toggle between Imperial and Metric units; preference persists across app restarts. 
 
 Save Location - Tap a star icon to save a location; icon changes from outline to gold when saved, and persists.
 
@@ -25,12 +25,12 @@ Dynamic Background - Gradient background changes based on time of day (sunrise, 
 
 Status: Work in progress - Core functionality is implemented
 In Progress: 
-- Styling and layout refinements.
+- Styling and layout refinements
 - More robust error handling
-- Persistence improvement and cleanup logic.
+- Persistence improvement and cleanup logic
 
 Next Steps:
-- Implementing an offline UI state.
+- Implement an offline UI state.
 - Expand forecast details.
 - Add loading and error banners.
 - Improve test coverage.
