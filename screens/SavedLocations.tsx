@@ -59,17 +59,7 @@ const SavedLocations = ({ navigation }) => {
 
 export default SavedLocations;
 
-// export default function Details({ route }: Props) {
 
-//   return (
-//     <View style={styles.container}>
-//       <ScreenContent
-//         path="screens/details.tsx"
-//         title={`Showing details for user ${route.params?.name}`}
-//       />
-//     </View>
-//   );
-// }
 
 export const styles = StyleSheet.create({
   container: {
