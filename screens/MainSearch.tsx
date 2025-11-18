@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
@@ -159,13 +160,14 @@ const MOCK_DATA: WeatherData = {
 };
 
 export default function MainSearch() {
-  //Constants used for weather data
+  //Constants and State Variables
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [displaySearch, setDisplaySearch] = useState<SearchResult[] | null>(null);
   const [searchText, setSearchText] = useState('');
   const [location, setLocation] = useState('');
   const [isMetric, setIsMetric] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   //Used to toggle measurement preference, and save it in Async Storage.
   const toggleUnits = async () => {
@@ -178,12 +180,16 @@ export default function MainSearch() {
 
   const navigation = useNavigation();
 
-  //Url And Key for Weather API
+  //URL And KEY for Weather API
   const apiSearchURL = process.env.EXPO_PUBLIC_API_URL_SEARCH;
   const apiForecastURL = process.env.EXPO_PUBLIC_API_URL_FORECAST;
   const apiKey = process.env.EXPO_PUBLIC_API_KEY;
 
-  //Search Function for Location
+  //Check if current location is already saved
+  const currentName = weatherData?.location?.name;
+  const isSaved = !!currentName && savedLocations.some((loc) => loc.name === currentName);
+
+  //Function used to fetch locations based on user inout in the search bar.
   const fetchLocation = async (loc: string) => {
     if (loc.length < 3) return;
 
@@ -191,38 +197,28 @@ export default function MainSearch() {
     controller = new AbortController();
 
     try {
+      setLoading(true);
       const response = await fetch(`${apiSearchURL}key=${apiKey}&q=${loc}`, {
         signal: controller.signal,
       });
+      if (!response) {
+        return console.error(Error);
+      }
+
       const data = await response.json();
       setDisplaySearch(data);
-      console.log(data);
+      console.log(data.map((item: any) => item.name));
     } catch (error) {
       console.log(error);
+    } finally {
+      setLoading(false);
     }
   };
 
   //Debounce Location to avoid over calling the API
   const debouncedFetchLocation = useCallback(debounce(fetchLocation, 500), []);
 
-  useEffect(() => {
-    const loadSaved = async () => {
-      try {
-        const stored = await AsyncStorage.getItem('SAVED_LOCATIONS');
-        if (stored) {
-          setSavedLocations(JSON.parse(stored));
-        }
-      } catch (err) {
-        console.warn('Failed to load saved locations', err);
-      }
-    };
-    loadSaved();
-  }, []);
-
-  const currentName = weatherData?.location?.name;
-  const isSaved = !!currentName && savedLocations.some((loc) => loc.name === currentName);
-
-  //Function used to save locations
+  //Function used to save locations to Async Storage.
   const saveLocation = () => {
     if (!weatherData?.location?.name) return;
 
@@ -242,32 +238,14 @@ export default function MainSearch() {
     AsyncStorage.setItem('SAVED_LOCATIONS', JSON.stringify(updated));
   };
 
-  //Runs every time SearchText changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    debouncedFetchLocation(searchText);
-  }, [searchText]);
+  const removeLocation = async () => {
+    if (!weatherData?.location?.name) return;
+    const updated = savedLocations.filter((loc) => loc.name !== weatherData.location.name);
+    setSavedLocations(updated);
+    await AsyncStorage.setItem('SAVED_LOCATIONS', JSON.stringify(updated));
+  };
 
-  //This only run once and runs the clear method on unmount.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    return () => {
-      debouncedFetchLocation.clear?.();
-    };
-  }, []);
-
-  //On First mount, load and apply saved unit preference fromm AsyncStorage.
-  useEffect(() => {
-    const loadUnitPre = async () => {
-      const stored = await AsyncStorage.getItem('UNIT_PREF');
-      if (stored !== null) {
-        setIsMetric(JSON.parse(stored));
-      }
-    };
-    loadUnitPre();
-  }, []);
-
-  //Fetch Weather Data Function
+  //Function used to Fetch Weather Data from selected location.
   const fetchWeather = async (loc: string) => {
     try {
       const response = await fetch(
@@ -284,7 +262,7 @@ export default function MainSearch() {
     }
   };
 
-  //Get Gradient background color based on time of day
+  //Function to get the gradient background color based on time of day
   const getGradientFromTime = (localTime?: string) => {
     if (!localTime) return ['#4B4F55', '#2F3237'] as const;
     let hour = Number(localTime.split(' ')[1].split(':')[0]);
@@ -299,12 +277,50 @@ export default function MainSearch() {
     }
   };
 
-  //On First mount, load and apply last searched location from AsyncStorage.
+  //On First/Initial mount, load and apply saved location from previous session from AsyncStorage. This only runs once.
+  useEffect(() => {
+    const loadSaved = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('SAVED_LOCATIONS');
+        if (stored) {
+          setSavedLocations(JSON.parse(stored));
+        }
+      } catch (err) {
+        console.warn('Failed to load saved locations', err);
+      }
+    };
+    loadSaved();
+  }, []);
+
+  //On First/Initial mount, load and apply saved unit preference from previous session from AsyncStorage. This only runs once.
+  useEffect(() => {
+    const loadUnitPre = async () => {
+      const stored = await AsyncStorage.getItem('UNIT_PREF');
+      if (stored !== null) {
+        setIsMetric(JSON.parse(stored));
+      }
+    };
+    loadUnitPre();
+  }, []);
+
+  //useEffect calls the debounce fetch location function when searchText changes. DebouncedFetchLocation takes searchText as the argument.
+  useEffect(() => {
+    debouncedFetchLocation(searchText);
+  }, [searchText]);
+
+  //useEffect that only runs once on unmount. Used ot clear the debounce function.
+  useEffect(() => {
+    return () => {
+      debouncedFetchLocation.clear?.();
+    };
+  }, []);
+
+  //On First/Initial mount, load and apply last searched location from AsyncStorage. This only runs once.
   useEffect(() => {
     const loadLastLocation = async () => {
       const saved = await AsyncStorage.getItem('LAST_LOCATION');
 
-      //if saved exists pass it into fetchWeather Function
+      //If saved, the LAST_LOCATION item within Async Storage, exists, then fetch teh weather data for that location/
       if (saved) {
         fetchWeather(saved); // auto-fetch last location
       }
@@ -312,6 +328,7 @@ export default function MainSearch() {
     loadLastLocation();
   }, []);
 
+  //When the screen comes into focus, reload saved locations from AsyncStorage.
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -335,30 +352,60 @@ export default function MainSearch() {
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* Search Button Placement Here
-            Just Basic Text Input for Location and Button for Search
+        {loading && <ActivityIndicator size="large" color="#0000ff" />}
+
+        {/* A Button that allows the user to save the location to thier favorites list. 
+            If the location is not saved, it will display an empty star and "Save to Favorites" text.
+            If the location is already saved, it will display a golden star and "Saved" text.
        */}
         {weatherData &&
           (isSaved ? (
-            <FontAwesome.Button
-              name="star"
-              size={22}
-              color="gold"
-              backgroundColor="#1e1e1e"
-              style={{ alignItems: 'center' }}>
-              Saved
-            </FontAwesome.Button>
+            <View
+              style={{
+                flex: 1,
+                marginVertical: 5,
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexDirection: 'row',
+              }}>
+              <FontAwesome.Button
+                name="star"
+                size={22}
+                color="gold"
+                backgroundColor="#1e1e1e"
+                style={{ alignItems: 'center', textAlign: 'center', alignContent: 'center' }}>
+                Saved
+              </FontAwesome.Button>
+              <FontAwesome.Button
+                name="trash"
+                size={22}
+                color="red"
+                backgroundColor="#1e1e1e"
+                style={{ alignItems: 'center', textAlign: 'center', alignContent: 'center' }}
+                onPress={removeLocation}>
+                Remove
+              </FontAwesome.Button>
+            </View>
           ) : (
-            <FontAwesome.Button
-              name="star-o"
-              size={22}
-              color="white"
-              backgroundColor="#1e1e1e"
-              onPress={saveLocation}
-              style={{ alignItems: 'center' }}>
-              Save to Favorites
-            </FontAwesome.Button>
+            <View
+              style={{
+                flex: 1,
+                marginVertical: 5,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+              <FontAwesome.Button
+                name="star-o"
+                size={22}
+                color="white"
+                backgroundColor="#1e1e1e"
+                onPress={saveLocation}
+                style={{ textAlign: 'center' }}>
+                Save to Favorites
+              </FontAwesome.Button>
+            </View>
           ))}
+
         <View style={{ marginBottom: 5, padding: 7 }}>
           <TextInput
             placeholder={'Enter Location'}
@@ -506,7 +553,7 @@ export default function MainSearch() {
                * Each  Day will display the date, max temp in F and C, and sunrise and sunset times.
                */}
 
-              <Text style={{ textAlign: 'center', marginTop: 10 }}>Forecast For Next 3 Days.</Text>
+              <Text style={{ textAlign: 'center', marginTop: 10 }}>Forecast For 3 Days.</Text>
               <ScrollView
                 horizontal
                 contentContainerStyle={{
@@ -525,9 +572,24 @@ export default function MainSearch() {
                     .map((day, index) => {
                       return (
                         <View key={index} style={{ padding: 8, margin: 4 }}>
-                          <Text style={styles.text}>Date: {day.date}</Text>
+                          {index === 0 ? (
+                            <>
+                              <Text style={{ ...styles.text, fontSize: 18 }}>Today</Text>
+                              <Text style={styles.text}>Date: {day.date}</Text>
+                            </>
+                          ) : index === 1 ? (
+                            <>
+                              <Text style={{ ...styles.text, fontSize: 18 }}>Tomorrow</Text>
+                              <Text style={styles.text}>Date: {day.date}</Text>
+                            </>
+                          ) : (
+                            <>
+                              <Text style={{ ...styles.text, fontSize: 18 }}>Day After</Text>
+                              <Text style={styles.text}>Date: {day.date}</Text>
+                            </>
+                          )}
                           <Text style={styles.text}>
-                            Max Temp:
+                            Max Temp:{' '}
                             {isMetric ? `${day.day?.maxtemp_c}°C` : `${day.day?.maxtemp_f}°F`}
                           </Text>
                           <Text style={styles.text}>Condition: {day.day.condition.text}</Text>
@@ -540,32 +602,6 @@ export default function MainSearch() {
                         </View>
                       );
                     })}
-                  {/* {weatherData?.forecast?.forecastday.map((day, index) => {
-                    return (
-                      <View key={index} style={{ padding: 8, margin: 4 }}>
-                        <Text style={styles.text}>
-                          Date: {day.day ? new Date(day.date).toLocaleDateString() : '-'}
-                        </Text>
-                        <Text style={styles.text}>
-                          Max Temp:{' '}
-                          {isMetric ? `${day.day?.maxtemp_c}°C` : `${day.day?.maxtemp_f}°F`}
-                        </Text>
-                        <Text style={styles.text}>Condition: {day.day.condition.text}</Text>
-                        <Image
-                          source={{ uri: `https:${day.day.condition.icon}` }}
-                          style={{
-                            width: 50,
-                            height: 50,
-                            alignSelf: 'center',
-                          }}
-                        />
-
-                        <Text style={styles.text}>Sunrise: {day.astro?.sunrise}</Text>
-
-                        <Text style={styles.text}>Sunset: {day.astro?.sunset}</Text>
-                      </View>
-                    );
-                  })} */}
                 </View>
               </ScrollView>
             </>
