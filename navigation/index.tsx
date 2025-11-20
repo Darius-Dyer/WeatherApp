@@ -14,8 +14,16 @@ const Navigation = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator>
-        <Stack.Screen name="Weather Search" component={MainSearch} />
-        <Stack.Screen name="Saved Locations" component={SavedLocations} />
+        <Stack.Screen
+          name="Weather Search"
+          component={MainSearch}
+          options={{ headerTitleAlign: 'center' }}
+        />
+        <Stack.Screen
+          name="Saved Locations"
+          component={SavedLocations}
+          options={{ headerTitleAlign: 'center' }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
