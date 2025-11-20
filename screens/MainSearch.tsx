@@ -11,80 +11,17 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 
-interface WeatherData {
-  location: Location;
-  current: Current;
-  forecast: Forecast;
-}
-interface Location {
-  name: string;
-  region: string;
-  country: string;
-  tx_id: string;
-  localtime_epoch: number;
-  localtime: string;
-  tz_id: string;
-}
-interface Current {
-  temp_c: number;
-  temp_f: number;
-  wind_mph: number;
-  humidity: number;
-  wind_kph: number;
-  feelslike_c: number;
-  feelslike_f: number;
-  uv: number;
-  is_day: number;
-  condition: Condition;
-}
-interface Forecast {
-  forecastday: forecastday[];
-}
-interface forecastday {
-  date: string;
-  day: day;
-  astro: astro;
-}
-interface day {
-  maxtemp_c: number;
-  maxtemp_f: number;
-  mintemp_c: number;
-  mintemp_f: number;
-  condition: Condition;
-}
-
-interface astro {
-  sunrise: string;
-  sunset: string;
-}
-
-interface Condition {
-  text: string;
-  icon: string;
-  code: number;
-}
-
-interface SearchResult {
-  id: number;
-  name: string;
-  region: string;
-  country: string;
-  url: string;
-}
-
-interface SavedLocation {
-  name: string;
-  country: string;
-  region: string;
-}
+import type { WeatherData, SearchResult, SavedLocation } from 'types';
+import ForecastDisplay from 'components/ForecastDisplay';
+import SaveButton from 'components/SaveButton';
 
 let controller: AbortController;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const MOCK_DATA: WeatherData = {
   location: {
     name: 'Tokyo',
@@ -178,8 +115,6 @@ export default function MainSearch() {
     });
   };
 
-  const navigation = useNavigation();
-
   //URL And KEY for Weather API
   const apiSearchURL = process.env.EXPO_PUBLIC_API_URL_SEARCH;
   const apiForecastURL = process.env.EXPO_PUBLIC_API_URL_FORECAST;
@@ -236,6 +171,7 @@ export default function MainSearch() {
     setSavedLocations(updated);
 
     AsyncStorage.setItem('SAVED_LOCATIONS', JSON.stringify(updated));
+    console.log('Location Saved');
   };
 
   const removeLocation = async () => {
@@ -243,6 +179,7 @@ export default function MainSearch() {
     const updated = savedLocations.filter((loc) => loc.name !== weatherData.location.name);
     setSavedLocations(updated);
     await AsyncStorage.setItem('SAVED_LOCATIONS', JSON.stringify(updated));
+    console.log('Location Removed');
   };
 
   //Function used to Fetch Weather Data from selected location.
@@ -306,6 +243,7 @@ export default function MainSearch() {
   //useEffect calls the debounce fetch location function when searchText changes. DebouncedFetchLocation takes searchText as the argument.
   useEffect(() => {
     debouncedFetchLocation(searchText);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchText]);
 
   //useEffect that only runs once on unmount. Used ot clear the debounce function.
@@ -313,6 +251,7 @@ export default function MainSearch() {
     return () => {
       debouncedFetchLocation.clear?.();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   //On First/Initial mount, load and apply last searched location from AsyncStorage. This only runs once.
@@ -326,6 +265,7 @@ export default function MainSearch() {
       }
     };
     loadLastLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   //When the screen comes into focus, reload saved locations from AsyncStorage.
@@ -354,57 +294,65 @@ export default function MainSearch() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {loading && <ActivityIndicator size="large" color="#0000ff" />}
 
-        {/* A Button that allows the user to save the location to thier favorites list. 
+        {/* A Button that allows the user to save the location to their favorites list. 
             If the location is not saved, it will display an empty star and "Save to Favorites" text.
             If the location is already saved, it will display a golden star and "Saved" text.
        */}
-        {weatherData &&
-          (isSaved ? (
-            <View
-              style={{
-                flex: 1,
-                marginVertical: 5,
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexDirection: 'row',
-              }}>
-              <FontAwesome.Button
-                name="star"
-                size={22}
-                color="gold"
-                backgroundColor="#1e1e1e"
-                style={{ alignItems: 'center', textAlign: 'center', alignContent: 'center' }}>
-                Saved
-              </FontAwesome.Button>
-              <FontAwesome.Button
-                name="trash"
-                size={22}
-                color="red"
-                backgroundColor="#1e1e1e"
-                style={{ alignItems: 'center', textAlign: 'center', alignContent: 'center' }}
-                onPress={removeLocation}>
-                Remove
-              </FontAwesome.Button>
-            </View>
-          ) : (
-            <View
-              style={{
-                flex: 1,
-                marginVertical: 5,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}>
-              <FontAwesome.Button
-                name="star-o"
-                size={22}
-                color="white"
-                backgroundColor="#1e1e1e"
-                onPress={saveLocation}
-                style={{ textAlign: 'center' }}>
-                Save to Favorites
-              </FontAwesome.Button>
-            </View>
-          ))}
+        {
+          weatherData && (
+            <SaveButton
+              isSaved={isSaved}
+              saveLocation={saveLocation}
+              removeLocation={removeLocation}
+            />
+          )
+          // (isSaved ? (
+          //   <View
+          //     style={{
+          //       flex: 1,
+          //       marginVertical: 5,
+          //       justifyContent: 'space-between',
+          //       alignItems: 'center',
+          //       flexDirection: 'row',
+          //     }}>
+          //     <FontAwesome.Button
+          //       name="star"
+          //       size={22}
+          //       color="gold"
+          //       backgroundColor="#1e1e1e"
+          //       style={{ alignItems: 'center', textAlign: 'center', alignContent: 'center' }}>
+          //       Saved
+          //     </FontAwesome.Button>
+          //     <FontAwesome.Button
+          //       name="trash"
+          //       size={22}
+          //       color="red"
+          //       backgroundColor="#1e1e1e"
+          //       style={{ alignItems: 'center', textAlign: 'center', alignContent: 'center' }}
+          //       onPress={removeLocation}>
+          //       Remove
+          //     </FontAwesome.Button>
+          //   </View>
+          // ) : (
+          //   <View
+          //     style={{
+          //       flex: 1,
+          //       marginVertical: 5,
+          //       justifyContent: 'center',
+          //       alignItems: 'center',
+          //     }}>
+          //     <FontAwesome.Button
+          //       name="star-o"
+          //       size={22}
+          //       color="white"
+          //       backgroundColor="#1e1e1e"
+          //       onPress={saveLocation}
+          //       style={{ textAlign: 'center' }}>
+          //       Save to Favorites
+          //     </FontAwesome.Button>
+          //   </View>
+          // ))
+        }
 
         <View style={{ marginBottom: 5, padding: 7 }}>
           <TextInput
@@ -455,40 +403,45 @@ export default function MainSearch() {
                 <View
                   style={{
                     flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
+                    justifyContent: 'space-evenly',
+                    flex: 1,
                   }}>
                   <TouchableOpacity
                     onPress={toggleUnits}
                     style={{
-                      padding: 10,
+                      padding: 5,
                       backgroundColor: '#1e1e1e',
                       borderRadius: 5,
+                      alignSelf: 'center',
                     }}>
                     <Text style={{ color: '#fff', fontSize: 10 }}>
                       {isMetric ? 'Switch to Imperial' : 'Switch to Metric'}
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate('Saved Locations' as never)}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                      backgroundColor: '#1e1e1e',
-                      paddingHorizontal: 12,
-                      paddingVertical: 8,
-                      borderRadius: 5,
-                    }}>
-                    <FontAwesome name="list" size={12} color="white" />
-                    <Text style={{ color: '#fff', fontSize: 12 }}>View Saved</Text>
-                  </TouchableOpacity>
-
                   <Image
-                    style={{ width: 50, height: 50 }}
+                    style={{
+                      width: 70,
+                      height: 70,
+                      alignSelf: 'flex-start',
+                      marginLeft: 20,
+                    }}
                     source={{ uri: `https:${weatherData.current.condition.icon}` }}
                   />
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 'bold',
+                      color: '#1e1e1e',
+                      alignSelf: 'center',
+                      textAlign: 'center',
+                    }}>
+                    Current Condition{'\n'}
+                    <Text
+                      style={{ fontSize: 18, fontWeight: 'bold', color: '#1e1e1e', marginTop: 5 }}>
+                      {weatherData.current.condition.text}
+                    </Text>
+                  </Text>
                 </View>
 
                 <Text style={styles.text}>
@@ -553,7 +506,8 @@ export default function MainSearch() {
                * Each  Day will display the date, max temp in F and C, and sunrise and sunset times.
                */}
 
-              <Text style={{ textAlign: 'center', marginTop: 10 }}>Forecast For 3 Days.</Text>
+              <ForecastDisplay weatherData={weatherData} isMetric={isMetric} />
+              {/* <Text style={{ textAlign: 'center', marginTop: 10 }}>Forecast For 3 Days.</Text>
               <ScrollView
                 horizontal
                 contentContainerStyle={{
@@ -603,7 +557,7 @@ export default function MainSearch() {
                       );
                     })}
                 </View>
-              </ScrollView>
+              </ScrollView> */}
             </>
           ) : null}
         </View>
