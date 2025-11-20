@@ -15,6 +15,10 @@ const SaveButton = ({
 
   return (
     <>
+      {/* A Component that allows the user to save the location to their favorites list. 
+            If the location is not saved, it will display an empty star and "Save to Favorites" text.
+            If the location is already saved, it will display a golden star and "Saved" text.
+       */}
       {isSaved ? (
         <View
           style={{
@@ -86,6 +90,7 @@ const SaveButton = ({
 
 export default SaveButton;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const styles = {
   button: 'items-center bg-indigo-500 rounded-[28px] shadow-md p-4',
   buttonText: 'text-white text-lg font-semibold text-center',
