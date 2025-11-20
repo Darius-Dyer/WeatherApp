@@ -1,4 +1,5 @@
-import { StyleSheet, View, ScrollView, TouchableOpacity, Image, Text } from 'react-native';
+import { StyleSheet, View, ScrollView, TouchableOpacity, Text } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -26,10 +27,16 @@ const SavedLocations = ({ navigation }) => {
 
   return (
     <ScrollView style={{ flex: 1, padding: 16 }}>
-      <Text style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 12 }}>Saved Locations</Text>
+      <Text style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' }}>
+        {savedLocations.length > 0
+          ? ` Current Number of saved locations (${savedLocations.length})`
+          : 'Saved Locations'}
+      </Text>
 
       {savedLocations.length === 0 ? (
-        <Text>No saved locations.</Text>
+        <View style={{ alignItems: 'center', marginTop: 50 }}>
+          <Text>No saved locations.</Text>
+        </View>
       ) : (
         savedLocations.map((loc) => (
           <View
@@ -41,15 +48,39 @@ const SavedLocations = ({ navigation }) => {
               marginBottom: 10,
               borderRadius: 8,
               flexDirection: 'row',
-              justifyContent: 'space-between',
+              justifyContent: 'center',
               alignItems: 'center',
+              flexWrap: 'wrap',
+              alignContent: 'center',
             }}>
-            <Text>
-              {loc.name} — {loc.region} — {loc.country}
-            </Text>
-            <TouchableOpacity onPress={() => removeLocation(loc.name)}>
-              <Text style={{ color: 'red', fontWeight: 'bold' }}>Remove</Text>
-            </TouchableOpacity>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: '100%',
+              }}>
+              <Text
+                style={{ fontSize: 15, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' }}>
+                {loc.name} — {loc.region} — {loc.country}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', alignSelf: 'center' }}>
+              <FontAwesome.Button
+                name="trash"
+                size={22}
+                color="red"
+                backgroundColor="#1e1e1e"
+                style={{
+                  padding: 10,
+                  margin: 5,
+                  width: '100%',
+                }}
+                onPress={() => removeLocation(loc.name)}>
+                Remove
+              </FontAwesome.Button>
+            </View>
           </View>
         ))
       )}
@@ -58,8 +89,6 @@ const SavedLocations = ({ navigation }) => {
 };
 
 export default SavedLocations;
-
-
 
 export const styles = StyleSheet.create({
   container: {
