@@ -8,7 +8,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Image,
   ActivityIndicator,
 } from 'react-native';
 
@@ -18,6 +17,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { WeatherData, SearchResult, SavedLocation } from 'types';
 import ForecastDisplay from 'components/ForecastDisplay';
 import SaveButton from 'components/SaveButton';
+import WeatherDisplay from 'components/WeatherDisplay';
 
 let controller: AbortController;
 
@@ -294,65 +294,17 @@ export default function MainSearch() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {loading && <ActivityIndicator size="large" color="#0000ff" />}
 
-        {/* A Button that allows the user to save the location to their favorites list. 
+        {/* A Component that allows the user to save the location to their favorites list. 
             If the location is not saved, it will display an empty star and "Save to Favorites" text.
             If the location is already saved, it will display a golden star and "Saved" text.
        */}
-        {
-          weatherData && (
-            <SaveButton
-              isSaved={isSaved}
-              saveLocation={saveLocation}
-              removeLocation={removeLocation}
-            />
-          )
-          // (isSaved ? (
-          //   <View
-          //     style={{
-          //       flex: 1,
-          //       marginVertical: 5,
-          //       justifyContent: 'space-between',
-          //       alignItems: 'center',
-          //       flexDirection: 'row',
-          //     }}>
-          //     <FontAwesome.Button
-          //       name="star"
-          //       size={22}
-          //       color="gold"
-          //       backgroundColor="#1e1e1e"
-          //       style={{ alignItems: 'center', textAlign: 'center', alignContent: 'center' }}>
-          //       Saved
-          //     </FontAwesome.Button>
-          //     <FontAwesome.Button
-          //       name="trash"
-          //       size={22}
-          //       color="red"
-          //       backgroundColor="#1e1e1e"
-          //       style={{ alignItems: 'center', textAlign: 'center', alignContent: 'center' }}
-          //       onPress={removeLocation}>
-          //       Remove
-          //     </FontAwesome.Button>
-          //   </View>
-          // ) : (
-          //   <View
-          //     style={{
-          //       flex: 1,
-          //       marginVertical: 5,
-          //       justifyContent: 'center',
-          //       alignItems: 'center',
-          //     }}>
-          //     <FontAwesome.Button
-          //       name="star-o"
-          //       size={22}
-          //       color="white"
-          //       backgroundColor="#1e1e1e"
-          //       onPress={saveLocation}
-          //       style={{ textAlign: 'center' }}>
-          //       Save to Favorites
-          //     </FontAwesome.Button>
-          //   </View>
-          // ))
-        }
+        {weatherData && (
+          <SaveButton
+            isSaved={isSaved}
+            saveLocation={saveLocation}
+            removeLocation={removeLocation}
+          />
+        )}
 
         <View style={{ marginBottom: 5, padding: 7 }}>
           <TextInput
@@ -399,165 +351,17 @@ export default function MainSearch() {
               {/** This Displays the selected Locations Current Weather Data
                * Including location info, temperature, humidity, and wind speed
                */}
-              <View style={{ borderColor: 'black', borderWidth: 4, borderRadius: 10, padding: 7 }}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-evenly',
-                    flex: 1,
-                  }}>
-                  <TouchableOpacity
-                    onPress={toggleUnits}
-                    style={{
-                      padding: 5,
-                      backgroundColor: '#1e1e1e',
-                      borderRadius: 5,
-                      alignSelf: 'center',
-                    }}>
-                    <Text style={{ color: '#fff', fontSize: 10 }}>
-                      {isMetric ? 'Switch to Imperial' : 'Switch to Metric'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <Image
-                    style={{
-                      width: 70,
-                      height: 70,
-                      alignSelf: 'flex-start',
-                      marginLeft: 20,
-                    }}
-                    source={{ uri: `https:${weatherData.current.condition.icon}` }}
-                  />
-                  <Text
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 'bold',
-                      color: '#1e1e1e',
-                      alignSelf: 'center',
-                      textAlign: 'center',
-                    }}>
-                    Current Condition{'\n'}
-                    <Text
-                      style={{ fontSize: 18, fontWeight: 'bold', color: '#1e1e1e', marginTop: 5 }}>
-                      {weatherData.current.condition.text}
-                    </Text>
-                  </Text>
-                </View>
-
-                <Text style={styles.text}>
-                  Country: {weatherData?.location?.country}
-                  {'\n'}
-                  City: {weatherData?.location?.name}
-                  {'\n'}
-                  Region: {weatherData?.location?.region}
-                </Text>
-
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                  }}>
-                  <View style={{}}>
-                    <Text style={styles.text}>
-                      Temperature:
-                      {isMetric
-                        ? ` ${weatherData.current.temp_c}°C`
-                        : ` ${weatherData.current.temp_f}°F`}
-                    </Text>
-                    <Text style={styles.text}>Humidity: {weatherData?.current?.humidity}</Text>
-                  </View>
-
-                  <View style={{}}>
-                    <Text style={styles.text}>
-                      Wind Speed:
-                      {isMetric
-                        ? ` ${weatherData.current.wind_kph}kph`
-                        : ` ${weatherData.current.wind_mph}mph`}
-                    </Text>
-                    <Text style={styles.text}>
-                      Feels Like:
-                      {isMetric
-                        ? ` ${weatherData.current.feelslike_c}°C`
-                        : ` ${weatherData.current.feelslike_f}°F`}
-                    </Text>
-                  </View>
-                </View>
-
-                <View className="flex flex-col">
-                  <Text className="m-1.5 self-center p-1.5 text-center text-base font-bold text-[#1e1e1e]">
-                    Current Date:{'\n'}
-                    {weatherData?.location?.localtime
-                      ? new Date(weatherData.location.localtime).toLocaleDateString()
-                      : '-'}
-                  </Text>
-                  <Text className="m-1.5 self-center p-1.5 text-center text-base font-bold text-[#1e1e1e]">
-                    Current Local Time: {'\n'}
-                    {weatherData.location.localtime
-                      ? new Date(weatherData.location.localtime).toLocaleTimeString([], {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        })
-                      : '-'}
-                  </Text>
-                </View>
-              </View>
+              <WeatherDisplay
+                weatherData={weatherData}
+                isMetric={isMetric}
+                toggleUnits={toggleUnits}
+              />
 
               {/** This Displays the selected Locations 3 Day Forecast
                * Each  Day will display the date, max temp in F and C, and sunrise and sunset times.
                */}
 
               <ForecastDisplay weatherData={weatherData} isMetric={isMetric} />
-              {/* <Text style={{ textAlign: 'center', marginTop: 10 }}>Forecast For 3 Days.</Text>
-              <ScrollView
-                horizontal
-                contentContainerStyle={{
-                  marginTop: 20,
-                  borderColor: '#1e1e1e',
-                  borderWidth: 4,
-                  borderRadius: 8,
-                  padding: 10,
-                }}>
-                <View style={{ flexDirection: 'row' }}>
-                  {weatherData?.forecast?.forecastday
-                    .filter((day) => {
-                      const todayISO = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
-                      return day.date >= todayISO;
-                    })
-                    .map((day, index) => {
-                      return (
-                        <View key={index} style={{ padding: 8, margin: 4 }}>
-                          {index === 0 ? (
-                            <>
-                              <Text style={{ ...styles.text, fontSize: 18 }}>Today</Text>
-                              <Text style={styles.text}>Date: {day.date}</Text>
-                            </>
-                          ) : index === 1 ? (
-                            <>
-                              <Text style={{ ...styles.text, fontSize: 18 }}>Tomorrow</Text>
-                              <Text style={styles.text}>Date: {day.date}</Text>
-                            </>
-                          ) : (
-                            <>
-                              <Text style={{ ...styles.text, fontSize: 18 }}>Day After</Text>
-                              <Text style={styles.text}>Date: {day.date}</Text>
-                            </>
-                          )}
-                          <Text style={styles.text}>
-                            Max Temp:{' '}
-                            {isMetric ? `${day.day?.maxtemp_c}°C` : `${day.day?.maxtemp_f}°F`}
-                          </Text>
-                          <Text style={styles.text}>Condition: {day.day.condition.text}</Text>
-                          <Image
-                            source={{ uri: `https:${day.day.condition.icon}` }}
-                            style={{ width: 50, height: 50, alignSelf: 'center' }}
-                          />
-                          <Text style={styles.text}>Sunrise: {day.astro?.sunrise}</Text>
-                          <Text style={styles.text}>Sunset: {day.astro?.sunset}</Text>
-                        </View>
-                      );
-                    })}
-                </View>
-              </ScrollView> */}
             </>
           ) : null}
         </View>
