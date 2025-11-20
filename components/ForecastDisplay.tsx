@@ -8,11 +8,6 @@ const ForecastDisplay = ({
   isMetric: boolean;
   weatherData: WeatherData;
 }) => {
-  const formattedDate = weatherData?.location?.localtime
-    ? new Date(weatherData.location.localtime).toLocaleDateString()
-    : '-';
-
-  console.log(weatherData?.forecast?.forecastday.length);
   return (
     <View>
       <Text style={{ textAlign: 'center', marginTop: 10, fontSize: 25, fontWeight: 'bold' }}>
